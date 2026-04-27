@@ -177,6 +177,22 @@ def listar_alumnos(grupo_id: int) -> list[dict]:
         return [dict(r) for r in rows]
 
 
+def actualizar_alumno(alumno_id: int, nombre: str, identificador: str | None, numero_lista: int | None) -> None:
+    with get_conn() as conn:
+        conn.execute(
+            "UPDATE alumnos SET nombre = ?, identificador = ?, numero_lista = ? WHERE id = ?",
+            (nombre, identificador, numero_lista, alumno_id),
+        )
+
+
+def eliminar_alumnos(alumno_ids: Iterable[int]) -> None:
+    with get_conn() as conn:
+        conn.executemany(
+            "DELETE FROM alumnos WHERE id = ?",
+            [(aid,) for aid in alumno_ids],
+        )
+
+
 # ---------- Plantilla de orden ----------
 
 def guardar_plantilla(grupo_id: int, columnas: list[str]) -> None:

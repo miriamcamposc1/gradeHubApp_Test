@@ -96,9 +96,60 @@ with tab_alumnos:
     alumnos = db.listar_alumnos(grupo_id)
     if alumnos:
         df_alumnos = pd.DataFrame(alumnos)
-        cols_show = ["numero_lista", "nombre", "identificador"]
-        cols_show = [c for c in cols_show if c in df_alumnos.columns]
-        st.dataframe(df_alumnos[cols_show], use_container_width=True)
+        # Columna auxiliar para marcar eliminación
+        df_alumnos["🗑️ Eliminar"] = False
+        cols_edit = ["numero_lista", "nombre", "identificador", "🗑️ Eliminar"]
+        cols_edit = [c for c in cols_edit if c in df_alumnos.columns or c == "🗑️ Eliminar"]
+
+        editado = st.data_editor(
+            df_alumnos[cols_edit],
+            use_container_width=True,
+            num_rows="fixed",
+            key="editor_alumnos",
+            column_config={
+                "numero_lista": st.column_config.NumberColumn("No. Lista", min_value=1, max_value=99, step=1),
+                "nombre": st.column_config.TextColumn("Nombre", required=True),
+                "identificador": st.column_config.TextColumn("Matrícula"),
+                "🗑️ Eliminar": st.column_config.CheckboxColumn("🗑️", default=False),
+            },
+        )
+
+        if st.button("💾 Guardar cambios", key="btn_guardar_alumnos"):
+            eliminados = []
+            actualizados = 0
+            for idx, row in editado.iterrows():
+                alumno_id = df_alumnos.loc[idx, "id"]
+                if row.get("🗑️ Eliminar", False):
+                    eliminados.append(alumno_id)
+                    continue
+                orig = df_alumnos.loc[idx]
+                cambio = (
+                    row["nombre"] != orig["nombre"]
+                    or row.get("identificador") != orig.get("identificador")
+                    or row.get("numero_lista") != orig.get("numero_lista")
+                )
+                if cambio:
+                    num = row.get("numero_lista")
+                    num = int(num) if pd.notna(num) else None
+                    db.actualizar_alumno(
+                        alumno_id,
+                        str(row["nombre"]).strip(),
+                        str(row["identificador"]).strip() if row.get("identificador") else None,
+                        num,
+                    )
+                    actualizados += 1
+            if eliminados:
+                db.eliminar_alumnos(eliminados)
+            msg = []
+            if actualizados:
+                msg.append(f"{actualizados} alumno(s) actualizado(s)")
+            if eliminados:
+                msg.append(f"{len(eliminados)} alumno(s) eliminado(s)")
+            if msg:
+                st.success(". ".join(msg) + ".")
+                st.rerun()
+            else:
+                st.info("Sin cambios.")
     else:
         st.info("Aún no hay alumnos. Agrégalos manualmente o impórtalos desde un archivo.")
 
