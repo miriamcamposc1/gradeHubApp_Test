@@ -59,11 +59,17 @@ def init_db(db_path: str = DB_PATH) -> None:
                 grupo_id INTEGER NOT NULL,
                 nombre TEXT NOT NULL,
                 identificador TEXT,
+                numero_lista INTEGER,
                 FOREIGN KEY (grupo_id) REFERENCES grupos (id) ON DELETE CASCADE,
                 UNIQUE (grupo_id, nombre)
             )
             """
         )
+
+        # Migración: agregar numero_lista si la tabla ya existía sin esa columna
+        cols = [r[1] for r in conn.execute("PRAGMA table_info(alumnos)").fetchall()]
+        if "numero_lista" not in cols:
+            c.execute("ALTER TABLE alumnos ADD COLUMN numero_lista INTEGER")
 
         # plantillas_orden: una fila por grupo. "columnas" guarda el orden
         # canónico (lista JSON) que la maestra quiere ver en su Excel Oficial.
@@ -137,18 +143,36 @@ def agregar_alumno(grupo_id: int, nombre: str, identificador: str | None = None)
         )
 
 
-def agregar_alumnos_bulk(grupo_id: int, nombres: Iterable[str]) -> None:
+def agregar_alumnos_bulk(
+    grupo_id: int,
+    nombres: Iterable[str],
+    numeros_lista: Iterable[int | None] | None = None,
+) -> None:
+    """Inserta alumnos en lote. Si se pasan numeros_lista, se asignan."""
+    lista_nums = list(numeros_lista) if numeros_lista else None
     with get_conn() as conn:
-        conn.executemany(
-            "INSERT OR IGNORE INTO alumnos (grupo_id, nombre) VALUES (?, ?)",
-            [(grupo_id, n) for n in nombres if n and str(n).strip()],
-        )
+        for i, n in enumerate(nombres):
+            if not n or not str(n).strip():
+                continue
+            num = lista_nums[i] if lista_nums and i < len(lista_nums) else None
+            conn.execute(
+                "INSERT OR IGNORE INTO alumnos (grupo_id, nombre, numero_lista) VALUES (?, ?, ?)",
+                (grupo_id, n, num),
+            )
+            # Si ya existía, actualizar numero_lista si viene uno nuevo
+            if num is not None:
+                conn.execute(
+                    "UPDATE alumnos SET numero_lista = ? WHERE grupo_id = ? AND nombre = ? AND numero_lista IS NULL",
+                    (num, grupo_id, n),
+                )
 
 
 def listar_alumnos(grupo_id: int) -> list[dict]:
     with get_conn() as conn:
         rows = conn.execute(
-            "SELECT * FROM alumnos WHERE grupo_id = ? ORDER BY nombre", (grupo_id,)
+            "SELECT * FROM alumnos WHERE grupo_id = ? ORDER BY "
+            "CASE WHEN numero_lista IS NOT NULL THEN 0 ELSE 1 END, numero_lista, nombre",
+            (grupo_id,),
         ).fetchall()
         return [dict(r) for r in rows]
 

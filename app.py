@@ -95,7 +95,10 @@ with tab_alumnos:
     st.subheader("Alumnos del grupo")
     alumnos = db.listar_alumnos(grupo_id)
     if alumnos:
-        st.dataframe(pd.DataFrame(alumnos)[["nombre", "identificador"]], use_container_width=True)
+        df_alumnos = pd.DataFrame(alumnos)
+        cols_show = ["numero_lista", "nombre", "identificador"]
+        cols_show = [c for c in cols_show if c in df_alumnos.columns]
+        st.dataframe(df_alumnos[cols_show], use_container_width=True)
     else:
         st.info("Aún no hay alumnos. Agrégalos manualmente o impórtalos desde un archivo.")
 
@@ -119,9 +122,28 @@ with tab_alumnos:
         if archivo_alumnos:
             df_imp = proc.leer_archivo(archivo_alumnos)
             col_nombre = proc.detectar_columna_alumno(df_imp)
-            st.write(f"Columna detectada: `{col_nombre}`")
+            col_num_lista = proc.detectar_columna_numero_lista(df_imp)
+
+            st.write(f"Columna de nombre detectada: `{col_nombre}`")
+            if col_num_lista:
+                st.write(f"Columna de No. de lista detectada: `{col_num_lista}`")
+            else:
+                st.caption("No se detectó columna de número de lista.")
+
+            # Vista previa
+            cols_preview = [col_nombre] + ([col_num_lista] if col_num_lista else [])
+            st.dataframe(df_imp[cols_preview].head(10), use_container_width=True)
+
             if st.button("Importar"):
-                db.agregar_alumnos_bulk(grupo_id, df_imp[col_nombre].astype(str).tolist())
+                nombres = df_imp[col_nombre].astype(str).tolist()
+                nums = (
+                    pd.to_numeric(df_imp[col_num_lista], errors="coerce")
+                    .apply(lambda x: int(x) if pd.notna(x) else None)
+                    .tolist()
+                    if col_num_lista
+                    else None
+                )
+                db.agregar_alumnos_bulk(grupo_id, nombres, numeros_lista=nums)
                 st.success(f"Se importaron {len(df_imp)} alumnos.")
                 st.rerun()
 

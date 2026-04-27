@@ -66,6 +66,34 @@ def detectar_columna_alumno(df: pd.DataFrame) -> str:
     return df.columns[0]
 
 
+def detectar_columna_numero_lista(df: pd.DataFrame) -> str | None:
+    """
+    Heurística: la columna que represente el número de lista.
+    Busca variantes como 'No.', 'Núm', 'N° Lista', '#', 'No. Lista', 'Numero', etc.
+    Solo acepta columnas cuyos valores sean mayormente enteros pequeños (1-99).
+    Retorna None si no encuentra candidato.
+    """
+    patron = re.compile(
+        r"(n[uú]m|no\.?\s*lista|#|n[°o]\.?\s*(de\s*)?lista|numero\s*de\s*lista|list\s*n)",
+        re.I,
+    )
+    for c in df.columns:
+        if patron.search(str(c)):
+            return c
+    # Fallback: buscar la primera columna numérica con valores 1-99 consecutivos
+    for c in df.columns:
+        try:
+            vals = pd.to_numeric(df[c], errors="coerce").dropna()
+            if len(vals) > 0 and vals.min() >= 1 and vals.max() <= 99 and vals.dtype in ("int64", "float64"):
+                # Verificar que parezcan números de lista (enteros, mayormente secuenciales)
+                enteros = vals.astype(int)
+                if (enteros == vals).all() and len(enteros.unique()) == len(enteros):
+                    return c
+        except (TypeError, ValueError):
+            continue
+    return None
+
+
 # ---------- Fuzzy matching de tareas ----------
 
 @dataclass
