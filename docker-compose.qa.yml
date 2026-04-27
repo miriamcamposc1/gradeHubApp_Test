@@ -1,0 +1,15 @@
+# ============================================
+# docker-compose.qa.yml — Override para QA
+# ============================================
+# Ejecutar:
+#   docker compose --env-file .env.qa -f docker-compose.yml -f docker-compose.qa.yml up --build
+# ============================================
+
+services:
+  grades-hub:
+    container_name: grades-hub-qa
+    ports:
+      - "8502:8501"            # QA en puerto 8502 del host
+    volumes:
+      - ./work-qa:/work        # Carpeta de trabajo aislada de prod
+    restart: unless-stopped

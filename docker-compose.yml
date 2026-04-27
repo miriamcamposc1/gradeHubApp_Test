@@ -1,0 +1,25 @@
+# ============================================
+# docker-compose.yml — Configuración BASE compartida
+# ============================================
+# Uso:
+#   dev  (local sin Docker):  ver scripts/dev.ps1
+#   qa   (Docker):            docker compose --env-file .env.qa -f docker-compose.yml -f docker-compose.qa.yml up --build
+#   prod (Docker):            docker compose --env-file .env.prod -f docker-compose.yml -f docker-compose.prod.yml up --build -d
+# ============================================
+
+services:
+  grades-hub:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      - GRADES_DB_PATH=${GRADES_DB_PATH:-/data/grades.db}
+      - STREAMLIT_ENV=${STREAMLIT_ENV:-dev}
+    volumes:
+      # Persistencia de la base de datos SQLite
+      - grades_data:/data
+    expose:
+      - "8501"
+
+volumes:
+  grades_data:

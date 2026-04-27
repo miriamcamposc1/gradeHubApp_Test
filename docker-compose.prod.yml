@@ -1,0 +1,19 @@
+# ============================================
+# docker-compose.prod.yml — Override para PRODUCCIÓN
+# ============================================
+# Ejecutar:
+#   docker compose --env-file .env.prod -f docker-compose.yml -f docker-compose.prod.yml up --build -d
+# ============================================
+
+services:
+  grades-hub:
+    container_name: grades-hub-prod
+    ports:
+      - "8501:8501"            # Prod en puerto estándar
+    volumes:
+      - ./work:/work           # Carpeta de trabajo compartida con la maestra
+    restart: always            # Siempre reiniciar en producción
+    deploy:
+      resources:
+        limits:
+          memory: 512M         # Limitar memoria en prod
